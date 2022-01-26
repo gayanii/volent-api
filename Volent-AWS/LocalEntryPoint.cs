@@ -20,6 +20,7 @@ namespace Volent_AWS
             Host.CreateDefaultBuilder(args)
                 .ConfigureWebHostDefaults(webBuilder =>
                 {
+                    webBuilder.UseIIS();
                     webBuilder.UseStartup<Startup>();
                 });
     }

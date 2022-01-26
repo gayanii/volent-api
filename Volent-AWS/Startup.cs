@@ -11,6 +11,10 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Volent_AWS.Data;
+using Volent_AWS.Data.Repositories;
+using Volent_AWS.Manager;
+using Volent_AWS.Repositories;
 
 namespace Volent_AWS
 {
@@ -27,6 +31,12 @@ namespace Volent_AWS
         public void ConfigureServices(IServiceCollection services)
         {
             services.AddControllers();
+
+            services.AddTransient<IUserData, UserData>();
+            services.AddTransient<UserManager>();
+
+            services.AddTransient<IEventData, EventData>();
+            services.AddTransient<EventManager>();
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline

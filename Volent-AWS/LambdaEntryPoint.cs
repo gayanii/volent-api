@@ -34,6 +34,7 @@ namespace Volent_AWS
         /// <param name="builder"></param>
         protected override void Init(IWebHostBuilder builder)
         {
+            builder.UseIIS();
             builder
                 .UseStartup<Startup>();
         }
