@@ -43,13 +43,14 @@ namespace Volent_AWS.Controllers
             return await eventManager.GetEventById(eventId);
         }
 
-       /* [AllowAnonymous]
-        [HttpGet("type:int/type")]
-        public async Task<List<EventDTO>> GetEventsByType(int type)
-        {
-            Console.WriteLine("Get events by type" + type);
+         [AllowAnonymous]
+         [HttpGet]
+         [Route("type/{type:int}")]
+         public async Task<List<EventDTO>> GetEventsByType(int type)
+         {
+             Console.WriteLine("Get events by type" + type);
 
-            return await eventManager.GetEvents((DisplayEventStatus)type);
-        }*/
+             return await eventManager.GetEvents((DisplayEventStatus)type);
+         }
     }
 }

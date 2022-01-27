@@ -1,6 +1,7 @@
 ﻿using Amazon.DynamoDBv2;
 using Amazon.DynamoDBv2.Model;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Converters;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -77,29 +78,49 @@ namespace Volent_AWS.Data.Repositories
 
         public async Task<List<EventDTO>> GetEvents(DisplayEventStatus type)
         {
-            //TODO get only active events
-            Console.WriteLine("Get Events");
+         
+            Console.WriteLine("Event Data -> Get Events: " + type.ToString());
 
             var events = new List<EventDTO>();
-
+            var request = new ScanRequest { };
             try
             {
                 AmazonDynamoDBClient client = new AmazonDynamoDBClient();
 
-                var request = new ScanRequest
+                if (type == DisplayEventStatus.All)
                 {
-                    TableName = "Events",
-                };
+                    request = new ScanRequest
+                    {
+                        TableName = "Events",
+                    };
+
+                }
+                else
+                {
+                    request = new ScanRequest
+                    {
+                        TableName = "Events",
+                        ExpressionAttributeValues = new Dictionary<string, AttributeValue> {
+                            {":type", new AttributeValue {
+                                 S = ((int)type).ToString()
+                             }}
+                        },
+                        FilterExpression = "EventStatus=:type"
+                    };
+                }
 
                 var response = client.ScanAsync(request);
-
+             
                 if (response.Result.Items.Count != 0)
                 {
                     foreach (Dictionary<string, AttributeValue> item in response.Result.Items)
                     {
-                        var interest = GetItem(item);
-                        Console.WriteLine("json ::::: " + JsonConvert.SerializeObject(interest));
-                        EventDTO eventDTO = JsonConvert.DeserializeObject<EventDTO>(JsonConvert.SerializeObject(interest));
+                        var eventItm = GetItem(item);
+
+                        //EventDTO eventDTO = JsonConvert.DeserializeObject<EventDTO>(JsonConvert.SerializeObject(interest));
+
+                        var dateTimeConverter = new IsoDateTimeConverter { DateTimeFormat = "yyyy-MM-ddTHH:mm:ss" };
+                        var eventDTO = JsonConvert.DeserializeObject<EventDTO>(JsonConvert.SerializeObject(eventItm), dateTimeConverter);
 
                         events.Add(eventDTO);
                     }
@@ -149,10 +170,14 @@ namespace Volent_AWS.Data.Repositories
                         if (value.S != null) { val = value.S; }
                         if (value.N != null) { val = value.N.ToString(); }
 
+                        if (attributeName == "EventStartDate" || attributeName == "EventEndDate")
+                        {
+                            DateTime myDate = DateTime.Parse(value.S);
+                            val = myDate.ToString("yyyy-MM-ddTHH:mm:ss");
+                        }
+
                         obj.Add(attributeName, val);
                     }
-
-                    Console.WriteLine("JSONNN: " + JsonConvert.SerializeObject(obj));
 
                     eventDto = JsonConvert.DeserializeObject<EventDTO>(JsonConvert.SerializeObject(obj));
 
@@ -185,6 +210,13 @@ namespace Volent_AWS.Data.Repositories
                 var val = "";
                 if (value.S != null) { val = value.S; }
                 if (value.N != null) { val = value.N; }
+
+                if (attributeName == "EventStartDate" || attributeName == "EventEndDate")
+                {
+                    DateTime myDate = DateTime.Parse(value.S);
+
+                    val = myDate.ToString("yyyy-MM-ddTHH:mm:ss");
+                }
 
                 obj.Add(attributeName, val);
             }
