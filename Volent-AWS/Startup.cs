@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Cors.Infrastructure;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.HttpsPolicy;
@@ -26,11 +27,20 @@ namespace Volent_AWS
         }
 
         public static IConfiguration Configuration { get; private set; }
-
+        readonly string MyAllowSpecificOrigins = "_myAllowSpecificOrigins";
         // This method gets called by the runtime. Use this method to add services to the container
         public void ConfigureServices(IServiceCollection services)
         {
-            services.AddCors();
+            var corsBuilder = new CorsPolicyBuilder();
+            corsBuilder.AllowAnyHeader();
+            corsBuilder.AllowAnyMethod();
+            corsBuilder.WithOrigins("http://localhost:5000", "https://1m9tjjsqy4.execute-api.us-east-1.amazonaws.com/Prod/api", "http://localhost:4200"); // for a specific url. Don't add a forward slash on the end!
+            corsBuilder.AllowCredentials();
+
+            services.AddCors(options =>
+            {
+                options.AddPolicy("SiteCorsPolicy", corsBuilder.Build());
+            });
 
             services.AddControllers();
 
@@ -39,6 +49,7 @@ namespace Volent_AWS
 
             services.AddTransient<IEventData, EventData>();
             services.AddTransient<EventManager>();
+
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline
@@ -49,23 +60,19 @@ namespace Volent_AWS
                 app.UseDeveloperExceptionPage();
             }
 
-            app.UseCors(
-               options => options.WithOrigins("*").AllowAnyMethod()
-           );
-
             app.UseHttpsRedirection();
-
+            app.UseStaticFiles();
             app.UseRouting();
+
+            app.UseCors("SiteCorsPolicy");
+
+            // app.UseResponseCaching();
 
             app.UseAuthorization();
 
             app.UseEndpoints(endpoints =>
             {
                 endpoints.MapControllers();
-                endpoints.MapGet("/", async context =>
-                {
-                    await context.Response.WriteAsync("Welcome to running ASP.NET Core on AWS Lambda");
-                });
             });
         }
     }

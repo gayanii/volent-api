@@ -57,11 +57,12 @@ namespace Volent_AWS.Repositories
                             { "PasswordSalt", new AttributeValue { S = passwordSalt }},
                             { "AddedDate", new AttributeValue { S = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ") }},
                             { "Status", new AttributeValue { N = ((int) UserStatus.Deactive).ToString() }},
+                            { "NotificationType", new AttributeValue { N = ((int)user.NotificationType).ToString() }},
                          }
                     });
 
                     //Add user interests to interests table
-                    
+
                     if (user.Interests.Count != 0)
                     {
                         foreach (int interst in user.Interests)
@@ -109,7 +110,7 @@ namespace Volent_AWS.Repositories
 
                 var response = client.ScanAsync(request);
 
-                if (response.Result.Items.Count != 0)
+                if (response.Result.Items.Count > 0)
                 {
                     exist = true;
                 }
@@ -126,9 +127,9 @@ namespace Volent_AWS.Repositories
 
         }
 
-        public async Task<UserDTO> UserLogin(UserDTO user)
+        public async Task<UserDTO> UserLogin(LoginDTO user)
         {
-            Console.WriteLine("User Login -> " + user.Username + " " + user.Password);
+            Console.WriteLine("User Login -> un: " + user.Username + " pw: " + user.Password);
             if (String.IsNullOrEmpty(user.Username) || String.IsNullOrEmpty(user.Password))
             {
                 throw new UnauthorizedAccessException();
@@ -152,10 +153,10 @@ namespace Volent_AWS.Repositories
                 var response = client.ScanAsync(request);
 
                 var varified = false;
-                if (response.Result.Items.Count != 0)
+                if (response.Result.Items.Count > 0)
                 {
                     varified = VerifyPassword(user.Password, response.Result.Items[0]["Password"].S, response.Result.Items[0]["PasswordSalt"].S);
-                    Console.WriteLine("Valid password: " + varified);
+                    Console.WriteLine("Valid password?: " + varified);
 
                 }
 
@@ -203,7 +204,7 @@ namespace Volent_AWS.Repositories
 
                 var response = client.ScanAsync(request);
 
-                if (response.Result.Items.Count != 0)
+                if (response.Result.Items.Count > 0)
                 {
                     foreach (Dictionary<string, AttributeValue> item in response.Result.Items)
                     {
@@ -218,7 +219,7 @@ namespace Volent_AWS.Repositories
                                 Console.WriteLine(attributeName + " " + value.N);
                                 interestList.Add(int.Parse(value.N));
                             }
-                           
+
                         }
                     }
                 }
@@ -298,7 +299,7 @@ namespace Volent_AWS.Repositories
 
                 var response = client.ScanAsync(request);
 
-                if (response.Result.Items.Count != 0)
+                if (response.Result.Items.Count > 0)
                 {
                     foreach (Dictionary<string, AttributeValue> item in response.Result.Items)
                     {
@@ -321,9 +322,6 @@ namespace Volent_AWS.Repositories
             }
         }
 
-       
-        /// /////////////////////////////////////////////////////////////////////
-   
 
         private static Dictionary<string, string> GetItem(
             Dictionary<string, AttributeValue> attributeList)
@@ -376,6 +374,211 @@ namespace Volent_AWS.Repositories
             return userDTO;
         }
 
+       public async Task RateUser(string eventId, string userId, UserRateDTO rateDTO){
+            try
+            {
+                AmazonDynamoDBClient client = new AmazonDynamoDBClient();
 
+                var request = new ScanRequest
+                {
+                    TableName = "UserEvents",
+                    ExpressionAttributeValues = new Dictionary<string, AttributeValue> {
+                    {":eventid", new AttributeValue {
+                         S = eventId
+                    }},
+                    {":userid", new AttributeValue {
+                         S = userId
+                    }}
+                },
+                    FilterExpression = "EventId=:eventid and UserId=:userid"
+                };
+
+                var response = client.ScanAsync(request);
+
+                var val = "";
+                if (response.Result.Items.Count > 0)
+                {
+                    var obj = new Dictionary<string, string>();
+                    foreach (KeyValuePair<string, AttributeValue> kvp in response.Result.Items[0])
+                    {
+                        string attributeName = kvp.Key;
+                        AttributeValue value = kvp.Value;
+
+                        if (attributeName == "Id")
+                        {
+                            val = value.S;
+                        }
+
+                    }
+                }
+
+                if (string.IsNullOrEmpty(val))
+                {
+                    throw new BadRequestException();
+                }
+
+                var updateRequest = new UpdateItemRequest
+                {
+                    TableName = "UserEvents",
+                    Key = new Dictionary<string, AttributeValue>() { { "Id", new AttributeValue { S = val } } },
+                    ExpressionAttributeNames = new Dictionary<string, string>()
+                    {
+                        {"#rate", "UserRate"},
+                        {"#comment", "UserComment"},
+                        {"#participated", "Participated"}
+                    },
+                    ExpressionAttributeValues = new Dictionary<string, AttributeValue>()
+                    {
+                        {":usertRate",new AttributeValue { S = rateDTO.Rate}},
+                        {":userCmmnt",new AttributeValue {S = rateDTO.Comment}},
+                        {":participated",new AttributeValue {N = rateDTO.Participated.ToString()}}
+                    },
+                    UpdateExpression = "SET #rate=:usertRate, #comment=:userCmmnt, #participated=:participated"
+                };
+
+                await client.UpdateItemAsync(updateRequest);
+
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("Error: " + ex.ToString());
+                throw new InternalServerErrorException(ex.ToString());
+            }
+        }
+
+        public async Task<UserDTO> GetUserDataById(string userId)
+        {
+            try
+            {
+                AmazonDynamoDBClient client = new AmazonDynamoDBClient();
+
+                var request = new ScanRequest
+                {
+                    TableName = "Users",
+                    ExpressionAttributeValues = new Dictionary<string, AttributeValue> {
+                        {":userid", new AttributeValue {
+                             S = userId
+                         }}
+                    },
+                    FilterExpression = "UserId=:userid"
+                };
+
+                var response = client.ScanAsync(request);
+
+                var userDTO = new UserDTO();
+                if (response.Result.Items.Count > 0)
+                {
+                    //Get user date
+                    userDTO = GetUserReturnItems(response.Result.Items[0]);
+
+                    //Get user interest
+                    List<int> userInterests = GetUserInterests(userDTO.UserId);
+                    userDTO.Interests = userInterests;
+                }
+
+                return userDTO;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("Error: " + ex.ToString());
+                throw new InternalServerErrorException(ex.ToString());
+            }
+            
+        }
+
+        public async Task<List<UserDTO>> GetUsersDataByEventId(string eventId)
+        {
+            //Get UserIds for the Event
+            try
+            {
+                var usersList = new List<UserDTO>();
+                AmazonDynamoDBClient client = new AmazonDynamoDBClient();
+
+                var request = new ScanRequest
+                {
+                    TableName = "UserEvents",
+                    ExpressionAttributeValues = new Dictionary<string, AttributeValue> {
+                            {":eventid", new AttributeValue {
+                                 S = eventId
+                             }}
+                        },
+                    FilterExpression = "EventId=:eventid"
+                };
+
+                var response = client.ScanAsync(request);
+                var users = new List<String>();
+              
+                if (response.Result.Items.Count > 0)
+                {
+                    foreach (Dictionary<string, AttributeValue> item in response.Result.Items)
+                    {
+                        var userIds = GetItem(item);
+                        Console.WriteLine("User Ids >> " + JsonConvert.SerializeObject(userIds));
+                        UserEventsDTO userDTO = JsonConvert.DeserializeObject<UserEventsDTO>(JsonConvert.SerializeObject(userIds));
+
+                        users.Add(userDTO.UserId);
+                    }
+                }
+
+                //Get Users Data
+                var userRequest = new ScanRequest
+                {
+                    TableName = "Users"
+                };
+                var userResponse = client.ScanAsync(userRequest);
+
+                Console.WriteLine("Users resut ::: " + userResponse.Result.Items.Count);
+                if (userResponse.Result.Items.Count > 0)
+                {
+                    foreach (Dictionary<string, AttributeValue> item in userResponse.Result.Items)
+                    {
+                        UserDTO userDTO = GetUserReturnItems(item);
+                        Console.WriteLine("###User ID: " + userDTO.UserId);
+                        Console.WriteLine("###CONTAINS: " + users.All(userDTO.UserId.Contains));
+                        if (users.All(userDTO.UserId.Contains))
+                        {
+                            usersList.Add(userDTO);
+                        }
+                    }
+                }
+
+                return usersList;
+
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("Error: " + ex.ToString());
+                throw new InternalServerErrorException(ex.ToString());
+            }
+        }
+
+        public async Task JoinEvent(string userId, string eventId)
+        {
+            string usereventId = Guid.NewGuid().ToString();
+
+            try
+            {
+                using (var client = new AmazonDynamoDBClient())
+                {
+                    //Add data to user table
+                    await client.PutItemAsync(new PutItemRequest
+                    {
+                        TableName = "UserEvents",
+                        Item = new Dictionary<string, AttributeValue>
+                        {
+                            { "Id", new AttributeValue { S = usereventId}},
+                            { "EventId", new AttributeValue { S = eventId}},
+                            { "UserId", new AttributeValue { S =  userId}},
+                            { "Participated", new AttributeValue { N = "0" }}
+                         }
+                    });
+                }
+             }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex.ToString());
+                throw new InternalServerErrorException(ex.ToString());
+            }
+        }
     }
 }

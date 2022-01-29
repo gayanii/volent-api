@@ -38,7 +38,7 @@ namespace Volent_AWS.Manager
             }
         }
 
-        public async Task<UserDTO> UserLogin(UserDTO user)
+        public async Task<UserDTO> UserLogin(LoginDTO user)
         {
             UserDTO userDto = new UserDTO();
             try
@@ -59,6 +59,58 @@ namespace Volent_AWS.Manager
             try
             {
                 return await userData.GetInterests();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex.ToString());
+                throw new HttpResponseException(HttpStatusCode.InternalServerError);
+            }
+        }
+
+        public async Task RateUser(string eventid, string userid, UserRateDTO rateDTO)
+        {
+            try
+            {
+                await userData.RateUser(eventid, userid, rateDTO);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex.ToString());
+                throw new HttpResponseException(HttpStatusCode.InternalServerError);
+            }
+        }
+
+        public async Task<UserDTO> GetUserDataById(string userId)
+        {
+            try
+            {
+                return await userData.GetUserDataById(userId);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex.ToString());
+                throw new HttpResponseException(HttpStatusCode.InternalServerError);
+            }
+        }
+
+        public async Task JoinEvent(string userId, string eventId)
+        {
+            try
+            {
+                await userData.JoinEvent(userId, eventId);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex.ToString());
+                throw new HttpResponseException(HttpStatusCode.InternalServerError);
+            }
+        }
+
+        public async Task<List<UserDTO>> GetUsersByEvent(string eventId)
+        {
+            try
+            {
+                return await userData.GetUsersDataByEventId(eventId);
             }
             catch (Exception ex)
             {

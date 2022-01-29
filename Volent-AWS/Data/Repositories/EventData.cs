@@ -1,4 +1,5 @@
 ﻿using Amazon.DynamoDBv2;
+using Amazon.DynamoDBv2.DataModel;
 using Amazon.DynamoDBv2.Model;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;
@@ -15,6 +16,7 @@ namespace Volent_AWS.Data.Repositories
 {
     public class EventData : IEventData
     {
+        private static AmazonDynamoDBClient amzonclient = new AmazonDynamoDBClient();
         public async Task CreateEvent(EventDTO eventDto)
         {
             string eventId = Guid.NewGuid().ToString();
@@ -111,7 +113,7 @@ namespace Volent_AWS.Data.Repositories
 
                 var response = client.ScanAsync(request);
              
-                if (response.Result.Items.Count != 0)
+                if (response.Result.Items.Count > 0)
                 {
                     foreach (Dictionary<string, AttributeValue> item in response.Result.Items)
                     {
@@ -158,7 +160,7 @@ namespace Volent_AWS.Data.Repositories
 
                 var response = client.ScanAsync(request);
 
-                if (response.Result.Items.Count != 0)
+                if (response.Result.Items.Count > 0)
                 {
                     var obj = new Dictionary<string, string>();
                     foreach (KeyValuePair<string, AttributeValue> kvp in response.Result.Items[0])
@@ -244,7 +246,7 @@ namespace Volent_AWS.Data.Repositories
 
                 var response = client.ScanAsync(request);
 
-                if (response.Result.Items.Count != 0)
+                if (response.Result.Items.Count > 0)
                 {
                     foreach (Dictionary<string, AttributeValue> item in response.Result.Items)
                     {
@@ -273,5 +275,80 @@ namespace Volent_AWS.Data.Repositories
                 throw new InternalServerErrorException(ex.ToString());
             }
         }
+
+        public async Task RateEvent(string userId, string eventId, RateDTO rateDTO)
+        {
+
+            try
+            {
+                AmazonDynamoDBClient client = new AmazonDynamoDBClient();
+
+                var request = new ScanRequest
+                {
+                    TableName = "UserEvents",
+                    ExpressionAttributeValues = new Dictionary<string, AttributeValue> {
+                    {":eventid", new AttributeValue {
+                         S = eventId
+                    }},
+                    {":userid", new AttributeValue {
+                         S = userId
+                    }}
+                },
+                    FilterExpression = "EventId=:eventid and UserId=:userid"
+                };
+
+                var response = client.ScanAsync(request);
+
+                var val = "";
+                if (response.Result.Items.Count > 0)
+                {
+                    var obj = new Dictionary<string, string>();
+                    foreach (KeyValuePair<string, AttributeValue> kvp in response.Result.Items[0])
+                    {
+                        string attributeName = kvp.Key;
+                        AttributeValue value = kvp.Value;
+
+                        if (attributeName == "Id")
+                        {
+                            val = value.S;
+                        }
+
+                    }
+                }
+
+                if (string.IsNullOrEmpty(val))
+                {
+                    throw new BadRequestException();
+                }
+
+                var updateRequest = new UpdateItemRequest
+                {
+                    TableName = "UserEvents",
+                    Key = new Dictionary<string, AttributeValue>() { { "Id", new AttributeValue { S = val } } },
+                    ExpressionAttributeNames = new Dictionary<string, string>()
+                    {
+                        {"#rate", "EventRate"},
+                        {"#comment", "EventComment"},
+                    },
+                    ExpressionAttributeValues = new Dictionary<string, AttributeValue>()
+                    {
+                        {":eventRate",new AttributeValue { S = rateDTO.Rate}},
+                        {":eventCmmnt",new AttributeValue {S = rateDTO.Comment}}
+                    },
+                    UpdateExpression = "SET #rate=:eventRate, #comment=:eventCmmnt"
+                };
+
+                await client.UpdateItemAsync(updateRequest);
+
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("Error: " + ex.ToString());
+                throw new InternalServerErrorException(ex.ToString());
+            }
+
+
+        }
+
     }
 }

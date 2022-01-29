@@ -24,5 +24,6 @@ namespace Volent_AWS.Models
         public string Password { get; set; }
         public List<int> Interests { get; set; }
         public UserStatus Status { get; set; }
+        public NotificationType NotificationType { get; set; }
     }
 }

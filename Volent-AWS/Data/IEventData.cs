@@ -14,5 +14,7 @@ namespace Volent_AWS.Data
         Task<List<EventDTO>> GetEvents(DisplayEventStatus type);
 
         Task<EventDTO> GetEventById(string eventId);
+
+        Task RateEvent(string userid, string eventId, RateDTO eventRateDTO);
     }
 }

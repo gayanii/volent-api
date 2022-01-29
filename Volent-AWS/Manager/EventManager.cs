@@ -58,5 +58,18 @@ namespace Volent_AWS.Manager
                 throw new HttpResponseException(HttpStatusCode.BadRequest);
             }
         }
+
+        public async Task RateEvent(string userid, string eventId, RateDTO rateDTO)
+        {
+            try
+            {
+                await eventData.RateEvent(userid, eventId, rateDTO);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex.ToString());
+                throw new HttpResponseException(HttpStatusCode.BadRequest);
+            }
+        }
     }
 }

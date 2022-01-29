@@ -52,5 +52,17 @@ namespace Volent_AWS.Controllers
 
              return await eventManager.GetEvents((DisplayEventStatus)type);
          }
+
+        
+        [HttpPut]
+        [Route("{userId}/rate/{eventId}")]
+        public async Task<IActionResult> RateEvent(string userId, string eventId, [FromBody] RateDTO rateDTO)
+        {
+            Console.WriteLine("Rate Event" + eventId);
+
+            await eventManager.RateEvent(userId, eventId, rateDTO);
+
+            return Ok();
+        }
     }
 }

@@ -99,4 +99,11 @@ namespace Volent_AWS.Common
         Expired,
         Blocked
     }
+
+    public enum NotificationType
+    {
+        All = 0,
+        NearMe = 1,
+        Interested
+    }
 }

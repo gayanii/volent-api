@@ -19,4 +19,5 @@ namespace Volent_AWS.Models
         public EventStatus EventStatus { get; set; }
         public List<int> Interests { get; set; }
     }
+
 }
